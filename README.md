@@ -33,12 +33,6 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
-
 ## Project Structure
 
 The project follows a standard Next.js structure with TypeScript:
@@ -58,3 +52,13 @@ The project follows a standard Next.js structure with TypeScript:
 ## Author
 
 Lorenzo Alaniz
+
+## Bibliography
+
+The following resources were used in the creation of this project:
+
+- [ChatGPT](https://chat.openai.com) - Used for general coding assistance and problem-solving
+- [Claude.ai](https://claude.ai) - Utilized for additional AI-powered development support
+- [Bolt.new](https://bolt.new) - Employed for rapid prototyping and UI design inspiration
+
+These tools have been invaluable in the development process, providing insights, code suggestions, and creative solutions throughout the project lifecycle.
