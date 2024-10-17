@@ -1,28 +1,32 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Palette, X, Heart, Smile } from 'lucide-react';
 
+// Define the structure of a Nota object
 interface Nota {
-  id: number;
+  id: string;
   contenido: string;
   x: number;
   y: number;
   color: string;
   likes: number;
   emoji: string;
+  usuario: string;
 }
 
+// Define the props for the NotaAdhesiva component
 interface NotaAdhesivaProps {
   nota: Nota;
-  actualizarNota: (id: number, nuevoContenido: string) => void;
-  moverNota: (id: number, x: number, y: number) => void;
-  cambiarColorNota: (id: number) => void;
-  eliminarNota: (id: number) => void;
-  likeNota: (id: number) => void;
-  setEmojiNota: (id: number, emoji: string) => void;
+  actualizarNota: (id: string, nuevoContenido: string) => void;
+  moverNota: (id: string, x: number, y: number) => void;
+  cambiarColorNota: (id: string) => void;
+  eliminarNota: (id: string) => void;
+  likeNota: (id: string) => void;
+  setEmojiNota: (id: string, emoji: string) => void;
   nombreUsuario: string;
   zoom: number;
 }
 
+// Array of emojis to choose from
 const emojis = ['😊', '👍', '🎉', '💡', '❤️', '🚀', '🌟', '🔥'];
 
 const NotaAdhesiva: React.FC<NotaAdhesivaProps> = ({
@@ -36,14 +40,19 @@ const NotaAdhesiva: React.FC<NotaAdhesivaProps> = ({
   nombreUsuario,
   zoom
 }) => {
+  // State variables
   const [editando, setEditando] = useState(false);
+  const [contenidoLocal, setContenidoLocal] = useState(nota.contenido);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  // Refs
   const notaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const offsetRef = useRef({ x: 0, y: 0 });
 
+  // Handle dragging of the note
   const iniciarArrastre = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (editando) return;
     e.preventDefault();
@@ -59,6 +68,7 @@ const NotaAdhesiva: React.FC<NotaAdhesivaProps> = ({
     }
   }, [editando]);
 
+  // Handle note movement
   const moverNotaHandler = useCallback((e: MouseEvent) => {
     if (notaRef.current && notaRef.current.parentElement) {
       const parentRect = notaRef.current.parentElement.getBoundingClientRect();
@@ -68,6 +78,7 @@ const NotaAdhesiva: React.FC<NotaAdhesivaProps> = ({
     }
   }, [zoom]);
 
+  // Handle releasing the note after dragging
   const soltarNotaHandler = useCallback(() => {
     document.removeEventListener('mousemove', moverNotaHandler);
     document.removeEventListener('mouseup', soltarNotaHandler);
@@ -78,6 +89,7 @@ const NotaAdhesiva: React.FC<NotaAdhesivaProps> = ({
     }
   }, [moverNota, nota.id]);
 
+  // Clean up event listeners
   useEffect(() => {
     return () => {
       document.removeEventListener('mousemove', moverNotaHandler);
@@ -85,6 +97,7 @@ const NotaAdhesiva: React.FC<NotaAdhesivaProps> = ({
     };
   }, [moverNotaHandler, soltarNotaHandler]);
 
+  // Handle click on the note
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
     if (!editando) {
@@ -92,16 +105,22 @@ const NotaAdhesiva: React.FC<NotaAdhesivaProps> = ({
     }
   };
 
+  // Handle blur event when editing is finished
   const handleBlur = () => {
     setEditando(false);
+    if (contenidoLocal !== nota.contenido) {
+      actualizarNota(nota.id, contenidoLocal);
+    }
   };
 
+  // Handle changing the note's color
   const handleCambiarColor = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     cambiarColorNota(nota.id);
   };
 
+  // Handle deleting the note
   const handleEliminar = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsDeleting(true);
@@ -110,6 +129,7 @@ const NotaAdhesiva: React.FC<NotaAdhesivaProps> = ({
     }, 300);
   };
 
+  // Handle liking the note
   const handleLike = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsLiking(true);
@@ -117,16 +137,28 @@ const NotaAdhesiva: React.FC<NotaAdhesivaProps> = ({
     setTimeout(() => setIsLiking(false), 1000);
   };
 
+  // Handle selecting an emoji
   const handleEmojiClick = (emoji: string) => {
     setEmojiNota(nota.id, emoji);
     setShowEmojiPicker(false);
   };
 
+  // Focus on textarea when editing starts
   useEffect(() => {
     if (editando && textareaRef.current) {
       textareaRef.current.focus();
     }
   }, [editando]);
+
+  // Handle content change in textarea
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setContenidoLocal(e.target.value);
+  };
+
+  // Sync local content with nota content when it changes externally
+  useEffect(() => {
+    setContenidoLocal(nota.contenido);
+  }, [nota.contenido]);
 
   return (
     <div
@@ -143,6 +175,7 @@ const NotaAdhesiva: React.FC<NotaAdhesivaProps> = ({
       onClick={handleClick}
       onDoubleClick={(e) => e.stopPropagation()}
     >
+      {/* Buttons for note actions */}
       <div className="absolute top-2 left-2 flex space-x-2">
         <button
           className="p-1 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors duration-200 hover:shadow-lg"
@@ -163,6 +196,8 @@ const NotaAdhesiva: React.FC<NotaAdhesivaProps> = ({
           <X size={16} />
         </button>
       </div>
+
+      {/* Emoji picker */}
       {showEmojiPicker && (
         <div className="absolute top-10 left-2 z-10 bg-white rounded-lg shadow-lg p-2 flex flex-wrap gap-1">
           {emojis.map((emoji) => (
@@ -176,20 +211,26 @@ const NotaAdhesiva: React.FC<NotaAdhesivaProps> = ({
           ))}
         </div>
       )}
+
+      {/* Display selected emoji */}
       {nota.emoji && (
         <div className="absolute top-2 right-2 text-4xl opacity-20 pointer-events-none">
           {nota.emoji}
         </div>
       )}
+
+      {/* Textarea for note content */}
       <textarea
         ref={textareaRef}
         className="w-full h-full bg-transparent resize-none outline-none mt-10"
-        value={nota.contenido}
-        onChange={(e) => actualizarNota(nota.id, e.target.value)}
+        value={contenidoLocal}
+        onChange={handleContentChange}
         onBlur={handleBlur}
         readOnly={!editando}
         style={{ cursor: editando ? 'text' : 'move' }}
       />
+
+      {/* Like button and count */}
       <div className="absolute bottom-2 left-2 flex items-center space-x-2">
         <button
           className={`p-1 bg-white rounded-full shadow-md hover:bg-red-100 transition-all duration-300 ${
@@ -201,6 +242,8 @@ const NotaAdhesiva: React.FC<NotaAdhesivaProps> = ({
         </button>
         <span className="text-xs text-gray-500 opacity-50">{nota.likes}</span>
       </div>
+
+      {/* Display user name */}
       <div className="absolute bottom-2 right-2 text-xs text-gray-500 opacity-50 pointer-events-none select-none">
         {nombreUsuario}
       </div>

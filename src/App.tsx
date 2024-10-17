@@ -1,18 +1,21 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import axios from 'axios';
+import { ZoomIn, ZoomOut } from 'lucide-react';
 import NotaAdhesiva from './components/NotaAdhesiva';
 import Login from './components/Login';
-import { ZoomIn, ZoomOut } from 'lucide-react';
+import { obtenerNotas, crearNota, actualizarNota as actualizarNotaAPI, eliminarNota as eliminarNotaAPI } from './api/notas';
 
 export const colores = ['#fef68a', '#ffd7d7', '#fff8b8', '#b1e4ff', '#d9e8fc', '#e7feff'];
 
 interface Nota {
-  id: number;
+  id: string;
   contenido: string;
   x: number;
   y: number;
   color: string;
   likes: number;
   emoji: string;
+  usuario: string;
 }
 
 function App() {
@@ -23,6 +26,21 @@ function App() {
   const boardRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
   const lastPanPositionRef = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const cargarNotas = async () => {
+      try {
+        const notasDelServidor = await obtenerNotas();
+        setNotas(notasDelServidor);
+      } catch (error) {
+        console.error('Error al cargar notas:', error);
+        // Aquí podrías mostrar un mensaje de error al usuario
+      }
+    };
+    if (nombreUsuario) {
+      cargarNotas();
+    }
+  }, [nombreUsuario]);
 
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
@@ -69,69 +87,113 @@ function App() {
     isDraggingRef.current = false;
   }, []);
 
-  const agregarNota = useCallback((e: React.MouseEvent) => {
-    if (e.target !== boardRef.current) return;
+  const agregarNota = useCallback(async (e: React.MouseEvent) => {
+    if (e.target !== boardRef.current || !nombreUsuario) return;
     const rect = boardRef.current?.getBoundingClientRect();
     if (!rect) return;
     const x = (e.clientX - rect.left - pan.x) / zoom;
     const y = (e.clientY - rect.top - pan.y) / zoom;
-    const nuevaNota: Nota = {
-      id: Date.now(),
-      contenido: '',
-      x,
-      y,
-      color: colores[Math.floor(Math.random() * colores.length)],
-      likes: 0,
-      emoji: '',
-    };
-    setNotas((prevNotas) => [...prevNotas, nuevaNota]);
-  }, [zoom, pan]);
+    try {
+      const nuevaNota = await crearNota({
+        contenido: '',
+        x,
+        y,
+        color: colores[Math.floor(Math.random() * colores.length)],
+        likes: 0,
+        emoji: '',
+        usuario: nombreUsuario
+      });
+      setNotas((prevNotas) => [...prevNotas, nuevaNota]);
+    } catch (error) {
+      console.error('Error al crear nota:', error);
+      // Aquí podrías mostrar un mensaje de error al usuario
+    }
+  }, [zoom, pan, nombreUsuario]);
 
-  const actualizarNota = useCallback((id: number, nuevoContenido: string) => {
-    setNotas((prevNotas) =>
-      prevNotas.map((nota) =>
-        nota.id === id ? { ...nota, contenido: nuevoContenido } : nota
-      )
-    );
+  const actualizarNotaEnServidor = useCallback(async (id: string, nuevoContenido: string) => {
+    try {
+      await actualizarNotaAPI(id, { contenido: nuevoContenido });
+      setNotas((prevNotas) =>
+        prevNotas.map((nota) =>
+          nota.id === id ? { ...nota, contenido: nuevoContenido } : nota
+        )
+      );
+    } catch (error) {
+      console.error('Error al actualizar nota:', error);
+      // Aquí podrías mostrar un mensaje de error al usuario
+    }
   }, []);
 
-  const moverNota = useCallback((id: number, x: number, y: number) => {
-    setNotas((prevNotas) =>
-      prevNotas.map((nota) => (nota.id === id ? { ...nota, x, y } : nota))
-    );
+  const moverNotaEnServidor = useCallback(async (id: string, x: number, y: number) => {
+    try {
+      await actualizarNotaAPI(id, { x, y });
+      setNotas((prevNotas) =>
+        prevNotas.map((nota) => (nota.id === id ? { ...nota, x, y } : nota))
+      );
+    } catch (error) {
+      console.error('Error al mover nota:', error);
+      // Aquí podrías mostrar un mensaje de error al usuario
+    }
   }, []);
 
-  const cambiarColorNota = useCallback((id: number) => {
-    setNotas((prevNotas) =>
-      prevNotas.map((nota) => {
-        if (nota.id === id) {
-          const currentIndex = colores.indexOf(nota.color);
-          const nextIndex = (currentIndex + 1) % colores.length;
-          return { ...nota, color: colores[nextIndex] };
-        }
-        return nota;
-      })
-    );
+  const cambiarColorNota = useCallback(async (id: string) => {
+    const nota = notas.find((n) => n.id === id);
+    if (!nota) return;
+    const currentIndex = colores.indexOf(nota.color);
+    const nextIndex = (currentIndex + 1) % colores.length;
+    const nuevoColor = colores[nextIndex];
+    try {
+      await actualizarNotaAPI(id, { color: nuevoColor });
+      setNotas((prevNotas) =>
+        prevNotas.map((nota) =>
+          nota.id === id ? { ...nota, color: nuevoColor } : nota
+        )
+      );
+    } catch (error) {
+      console.error('Error al cambiar color de nota:', error);
+      // Aquí podrías mostrar un mensaje de error al usuario
+    }
+  }, [notas]);
+
+  const eliminarNotaEnServidor = useCallback(async (id: string) => {
+    try {
+      await eliminarNotaAPI(id);
+      setNotas((prevNotas) => prevNotas.filter((nota) => nota.id !== id));
+    } catch (error) {
+      console.error('Error al eliminar nota:', error);
+      // Aquí podrías mostrar un mensaje de error al usuario
+    }
   }, []);
 
-  const eliminarNota = useCallback((id: number) => {
-    setNotas((prevNotas) => prevNotas.filter((nota) => nota.id !== id));
-  }, []);
+  const likeNota = useCallback(async (id: string) => {
+    const nota = notas.find((n) => n.id === id);
+    if (!nota) return;
+    const nuevosLikes = nota.likes + 1;
+    try {
+      await actualizarNotaAPI(id, { likes: nuevosLikes });
+      setNotas((prevNotas) =>
+        prevNotas.map((nota) =>
+          nota.id === id ? { ...nota, likes: nuevosLikes } : nota
+        )
+      );
+    } catch (error) {
+      console.error('Error al dar like a nota:', error);
+      // Aquí podrías mostrar un mensaje de error al usuario
+    }
+  }, [notas]);
 
-  const likeNota = useCallback((id: number) => {
-    setNotas((prevNotas) =>
-      prevNotas.map((nota) =>
-        nota.id === id ? { ...nota, likes: nota.likes + 1 } : nota
-      )
-    );
-  }, []);
-
-  const setEmojiNota = useCallback((id: number, emoji: string) => {
-    setNotas((prevNotas) =>
-      prevNotas.map((nota) =>
-        nota.id === id ? { ...nota, emoji } : nota
-      )
-    );
+  const setEmojiNota = useCallback(async (id: string, emoji: string) => {
+    try {
+      await actualizarNotaAPI(id, { emoji });
+      setNotas((prevNotas) =>
+        prevNotas.map((nota) =>
+          nota.id === id ? { ...nota, emoji } : nota
+        )
+      );
+    } catch (error) {
+      console.error('Error al establecer emoji en nota:', error);
+      // Aquí podrías mostrar un mensaje de error al usuario
+    }
   }, []);
 
   const handleLogin = useCallback((nombre: string) => {
@@ -192,10 +254,10 @@ function App() {
             <NotaAdhesiva
               key={nota.id}
               nota={nota}
-              actualizarNota={actualizarNota}
-              moverNota={moverNota}
+              actualizarNota={actualizarNotaEnServidor}
+              moverNota={moverNotaEnServidor}
               cambiarColorNota={cambiarColorNota}
-              eliminarNota={eliminarNota}
+              eliminarNota={eliminarNotaEnServidor}
               likeNota={likeNota}
               setEmojiNota={setEmojiNota}
               nombreUsuario={nombreUsuario}
